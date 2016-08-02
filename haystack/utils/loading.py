@@ -86,7 +86,7 @@ def load_router(full_router_path):
 class ConnectionHandler(object):
     def __init__(self, connections_info):
         self.connections_info = connections_info
-        self.thread_local = threading.local()
+        self.connections = {}
         self._index = None
 
     def ensure_defaults(self, alias):
@@ -99,23 +99,14 @@ class ConnectionHandler(object):
             conn['ENGINE'] = 'haystack.backends.simple_backend.SimpleEngine'
 
     def __getitem__(self, key):
-        if not hasattr(self.thread_local, 'connections'):
-            self.thread_local.connections = {}
-        elif key in self.thread_local.connections:
-            return self.thread_local.connections[key]
-
-        self.ensure_defaults(key)
-        self.thread_local.connections[key] = load_backend(self.connections_info[key]['ENGINE'])(using=key)
-        return self.thread_local.connections[key]
+        if key not in self.connections:
+            self.ensure_defaults(key)
+            self.connections[key] = load_backend(self.connections_info[key]['ENGINE'])(using=key)    
+        return self.connections[key]
 
     def reload(self, key):
-        if not hasattr(self.thread_local, 'connections'):
-            self.thread_local.connections = {}
-        try:
-            del self.thread_local.connections[key]
-        except KeyError:
-            pass
-
+        if key in self.connections:
+            del self.connections[key]
         return self.__getitem__(key)
 
     def all(self):
